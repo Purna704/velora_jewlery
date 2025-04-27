@@ -36,11 +36,13 @@ const ImageSearch = ({
     formData.append('image', selectedFile);
 
     try {
-      const response = await axios.post('http://localhost:5000/search', formData, {
+      // Updated API URL for your Node.js backend hosted on Render
+      const response = await axios.post('https://velora-jewlery.onrender.com/search', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+
       if (response.data.results.length === 0) {
         setError('Sorry, the product you are searching for is not in our store.');
         setResults([]);
@@ -109,9 +111,13 @@ const ImageSearch = ({
                 {item.similarity !== undefined ? item.similarity.toFixed(2) + '%' : 'N/A'}
               </p>
               {isFavorite(item.id) ? (
-                <button className={styles.favoriteButton} onClick={() => removeFavorite(item.id)}>Remove from Favorites</button>
+                <button className={styles.favoriteButton} onClick={() => removeFavorite(item.id)}>
+                  Remove from Favorites
+                </button>
               ) : (
-                <button className={styles.favoriteButton} onClick={() => addFavorite(item)}>Add to Favorites</button>
+                <button className={styles.favoriteButton} onClick={() => addFavorite(item)}>
+                  Add to Favorites
+                </button>
               )}
             </div>
           </div>
