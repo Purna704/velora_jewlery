@@ -5,6 +5,7 @@ from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing import image
 import numpy as np
 from io import BytesIO
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -22,4 +23,5 @@ def extract_features():
     return jsonify({'features': features})
 
 if __name__ == '__main__':
-    app.run(port=5001)
+    port = int(os.environ.get('PORT', 5000))  # <-- NEW: dynamic port from Render
+    app.run(host='0.0.0.0', port=port)        # <-- NEW: bind to 0.0.0.0
