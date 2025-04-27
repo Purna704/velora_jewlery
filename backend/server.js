@@ -10,22 +10,14 @@ const path = require("path");
 const app = express();
 
 // ✅ Secure CORS settings
-const allowedOrigins = ['https://velora-jewlery-gdx4.vercel.app'];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+const corsOptions = {
+  origin: ['https://velora-jewlery.vercel.app'],
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
-  credentials: true
-}));
+  credentials: true,
+};
+app.use(cors(corsOptions));
 
-app.use(express.json());
 
 // 📸 Multer setup for file uploads
 const upload = multer({ dest: "uploads/" });
