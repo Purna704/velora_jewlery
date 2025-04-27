@@ -8,13 +8,29 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-app.use(cors());
+
+// ✅ Secure CORS settings
+const allowedOrigins = ['https://velora-jewlery-gdx4.vercel.app'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
+}));
+
 app.use(express.json());
 
-// Multer setup for file uploads
+// 📸 Multer setup for file uploads
 const upload = multer({ dest: "uploads/" });
 
-// Cosine similarity helper
+// 📈 Cosine similarity helper
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) {
     console.error("Feature vectors are invalid or length mismatch");
@@ -30,7 +46,7 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-// API endpoint to handle upload and search
+// 📤 API endpoint to handle upload and search
 app.post("/search", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).send("No file uploaded.");
@@ -39,7 +55,7 @@ app.post("/search", upload.single("image"), async (req, res) => {
   const imagePath = req.file.path;
 
   try {
-    // Spawn Python process to extract features
+    // 🐍 Spawn Python process to extract features
     const pythonScriptPath = path.join(__dirname, 'python', 'ext_feat.py');
     const pythonProcess = spawn('python', [pythonScriptPath, imagePath]);
 
@@ -57,7 +73,6 @@ app.post("/search", upload.single("image"), async (req, res) => {
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
         console.error(`Python process exited with code ${code}: ${errorString}`);
-        console.error(`Python process exited with code ${code}: ${errorString}`);
         return res.status(500).send("Error processing image in feature extraction: " + errorString);
       }
 
@@ -66,12 +81,10 @@ app.post("/search", upload.single("image"), async (req, res) => {
         result = JSON.parse(dataString);
       } catch (err) {
         console.error("Error parsing JSON from Python script:", err);
-        console.error("Error parsing JSON from Python script:", err);
         return res.status(500).send("Error parsing feature extraction result: " + err.message);
       }
 
       if (result.error) {
-        console.error("Error from Python script:", result.error);
         console.error("Error from Python script:", result.error);
         return res.status(500).send("Error in feature extraction: " + result.error);
       }
@@ -83,21 +96,19 @@ app.post("/search", upload.single("image"), async (req, res) => {
         return res.status(500).send("No features returned from feature extraction.");
       }
 
-      // Similarity threshold
+      // 🎯 Similarity threshold
       const threshold = 0.7;
 
-      // Compare against catalog and filter by threshold
+      // 📚 Compare against catalog and filter by threshold
       const catalog = require("./catlog.json");
 
       const results = catalog
         .map(item => {
-          // Ensure that item.features exists before calculating similarity
           if (!item.features) {
             console.warn(`Item ${item.id} does not have features.`);
             return null;
           }
 
-          // Calculate similarity between the query and catalog item
           let similarity = cosineSimilarity(queryFeatures, item.features);
           similarity = similarity * 100; // convert to percentile
           console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
@@ -108,15 +119,15 @@ app.post("/search", upload.single("image"), async (req, res) => {
           };
         })
         .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
-        .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
-        .slice(0, 5); // Limit the number of results to the top 5 most similar
+        .sort((a, b) => b.similarity - a.similarity) // Sort highest similarity first
+        .slice(0, 5); // Top 5
 
-      // Cleanup uploaded file
+      // 🧹 Cleanup uploaded file
       fs.unlink(imagePath, (err) => {
         if (err) console.error("Error deleting uploaded file:", err);
       });
 
-      // Return the results as JSON
+      // ✅ Return the results
       res.json({ results });
     });
   } catch (err) {
@@ -125,10 +136,10 @@ app.post("/search", upload.single("image"), async (req, res) => {
   }
 });
 
-// Serve static files (Optional, if you want to serve the uploaded images)
+// 🌍 Serve static files (Optional)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Listen on all interfaces
+// 🚀 Start the server
 app.listen(process.env.PORT || 5000, "0.0.0.0", () => {
   console.log("Node.js backend running on http://localhost:5000");
 });
