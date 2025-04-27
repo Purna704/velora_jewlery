@@ -38,7 +38,7 @@ app.post("/search", upload.single("image"), async (req, res) => {
   formData.append("image", fs.createReadStream(req.file.path));
 
   try {
-    const response = await axios.post("http://127.0.0.1:5001/extract", formData, {
+    const response = await axios.post("https://velora-jewlery-2.onrender.com/extract", formData, {
       headers: formData.getHeaders()
     });
 
