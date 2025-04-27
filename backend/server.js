@@ -31,42 +31,68 @@ function cosineSimilarity(a, b) {
 
 // API endpoint to handle upload and search
 app.post("/search", upload.single("image"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send("No file uploaded.");
+  }
+
   const formData = new FormData();
   formData.append("image", fs.createReadStream(req.file.path));
 
   try {
-    const response = await axios.post("https://velora-jewlery-2.onrender.com/extract", formData, {
-      headers: formData.getHeaders()
-    });
+    // Send the uploaded image to the external service for feature extraction
+    const response = await axios.post(
+      "https://velora-jewlery-2.onrender.com/extract", 
+      formData,
+      {
+        headers: formData.getHeaders(),
+      }
+    );
 
     const queryFeatures = response.data.features;
     console.log("Query features length:", queryFeatures.length);
+
+    if (!queryFeatures || queryFeatures.length === 0) {
+      return res.status(500).send("No features returned from feature extraction.");
+    }
 
     // Similarity threshold
     const threshold = 0.7;
 
     // Compare against catalog and filter by threshold
     const catalog = require("./catlog.json");
+
     const results = catalog
       .map(item => {
+        // Ensure that item.features exists before calculating similarity
+        if (!item.features) {
+          console.warn(`Item ${item.id} does not have features.`);
+          return null;
+        }
+
+        // Calculate similarity between the query and catalog item
         let similarity = cosineSimilarity(queryFeatures, item.features);
         similarity = similarity * 100; // convert to percentile
         console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
+
         return {
           ...item,
-          similarity
+          similarity,
         };
       })
-      .filter(item => item.similarity >= threshold * 100)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
+      .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
+      .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
+      .slice(0, 5); // Limit the number of results to the top 5 most similar
 
+    // Return the results as JSON
     res.json({ results });
   } catch (err) {
     console.error("Error in /search:", err);
     res.status(500).send("Error processing image");
   }
 });
+
+// Serve static files (Optional, if you want to serve the uploaded images)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Listen on all interfaces
 app.listen(process.env.PORT || 5000, "0.0.0.0", () => {
