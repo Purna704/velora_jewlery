@@ -10,9 +10,13 @@ import numpy as np
 from io import BytesIO
 import sys
 import json
+import logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load ResNet50 model
 model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
@@ -21,7 +25,14 @@ model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
 def extract_features():
     try:
         file = request.files['image']
-        img = image.load_img(BytesIO(file.read()), target_size=(224, 224))
+        if not file:
+            app.logger.error("No file part in the request")
+            return jsonify({'error': 'No file part in the request'}), 400
+        try:
+            img = image.load_img(BytesIO(file.read()), target_size=(224, 224))
+        except Exception as e:
+            app.logger.error(f"Error loading image: {e}")
+            return jsonify({'error': f"Invalid image file: {e}"}), 400
         x = image.img_to_array(img)
         x = preprocess_input(np.expand_dims(x, axis=0))
         features = model.predict(x)[0].tolist()
