@@ -6,9 +6,6 @@ const fs = require("fs");
 const FormData = require("form-data");
 const path = require("path");
 
-// Load catalog from JSON file
-const catalog = require("./catlog.json");
-
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -49,6 +46,7 @@ app.post("/search", upload.single("image"), async (req, res) => {
     const threshold = 0.7;
 
     // Compare against catalog and filter by threshold
+    const catalog = require("./catlog.json");
     const results = catalog
       .map(item => {
         let similarity = cosineSimilarity(queryFeatures, item.features);
@@ -70,6 +68,7 @@ app.post("/search", upload.single("image"), async (req, res) => {
   }
 });
 
-app.listen(5000, () => {
+// Listen on all interfaces
+app.listen(process.env.PORT || 5000, "0.0.0.0", () => {
   console.log("Node.js backend running on http://localhost:5000");
 });
