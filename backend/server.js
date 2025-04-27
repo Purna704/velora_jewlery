@@ -56,7 +56,8 @@ app.post("/search", upload.single("image"), async (req, res) => {
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
         console.error(`Python process exited with code ${code}: ${errorString}`);
-        return res.status(500).send("Error processing image in feature extraction.");
+        console.error(`Python process exited with code ${code}: ${errorString}`);
+        return res.status(500).send("Error processing image in feature extraction: " + errorString);
       }
 
       let result;
@@ -64,10 +65,12 @@ app.post("/search", upload.single("image"), async (req, res) => {
         result = JSON.parse(dataString);
       } catch (err) {
         console.error("Error parsing JSON from Python script:", err);
-        return res.status(500).send("Error parsing feature extraction result.");
+        console.error("Error parsing JSON from Python script:", err);
+        return res.status(500).send("Error parsing feature extraction result: " + err.message);
       }
 
       if (result.error) {
+        console.error("Error from Python script:", result.error);
         console.error("Error from Python script:", result.error);
         return res.status(500).send("Error in feature extraction: " + result.error);
       }
