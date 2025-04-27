@@ -5,6 +5,8 @@ from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing import image
 import numpy as np
 from io import BytesIO
+import sys
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -25,5 +27,21 @@ def extract_features():
         app.logger.error(f"Error in /extract: {e}")
         return jsonify({'error': str(e)}), 500
 
+def extract_features_cli(image_path):
+    try:
+        img = image.load_img(image_path, target_size=(224, 224))
+        x = image.img_to_array(img)
+        x = preprocess_input(np.expand_dims(x, axis=0))
+        features = model.predict(x)[0].tolist()
+        print(json.dumps({'features': features}))
+    except Exception as e:
+        print(json.dumps({'error': str(e)}))
+        sys.exit(1)
+
 if __name__ == '__main__':
-    app.run(port=5001)
+    if len(sys.argv) > 1:
+        # CLI mode
+        extract_features_cli(sys.argv[1])
+    else:
+        # Run Flask app
+        app.run(port=5001)
