@@ -1,3 +1,6 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow logging
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from tensorflow.keras.applications import ResNet50
