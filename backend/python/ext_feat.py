@@ -57,5 +57,5 @@ if __name__ == '__main__':
         # CLI mode
         extract_features_cli(sys.argv[1])
     else:
-        # Run Flask app
-        app.run(port=5001)
+        # Run Flask app binding to 0.0.0.0 to be accessible externally
+        app.run(host='0.0.0.0', port=5001)
