@@ -3,6 +3,7 @@ import './App.css';
 import styles from './components/ImageSearch.module.css'; 
 import ImageSearch from './components/ImageSearch';
 import localImagesMap from './assets/localImagesMap';
+import axios from 'axios';
 
 function App() {
   const [favorites, setFavorites] = useState([]);
@@ -41,12 +42,30 @@ function App() {
     setShowFavorites((prev) => !prev);
   };
 
+  // Handle Image Search API Request
+  const handleSearch = async (imageData) => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageData);
+
+      // Calling the Python Flask API for image feature extraction
+      const response = await axios.post("https://velora-jewlery-2.onrender.com/extract", formData, {
+        headers: formData.getHeaders(),
+      });
+
+      const queryFeatures = response.data.features;
+      console.log("Extracted features:", queryFeatures);
+      
+      //  features for similarity comparison or display results
+      setResults(queryFeatures);  // Assuming 'queryFeatures' 
+    } catch (error) {
+      console.error('Error during search:', error);
+    }
+  };
+
   return (
     <>
-      <div
-        className="navbar"
-        style={{ backgroundImage: `url(${images[currentImageIndex]})` }}
-      >
+      <div className="navbar" style={{ backgroundImage: `url(${images[currentImageIndex]})` }}>
         <div className="navTitleContainer">
           <h1 className="navTitle">~ Velora Jewelry</h1>
           <h2 className="navSubtitle">Discover Timeless Elegance</h2>
@@ -91,6 +110,7 @@ function App() {
               setResults={setResults}
               showFavorites={showFavorites}
               toggleFavoritesView={toggleFavoritesView}
+              handleSearch={handleSearch}  // Pass down search function
             />
           )}
         </div>
