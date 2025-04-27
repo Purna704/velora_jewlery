@@ -40,7 +40,8 @@ app.post("/search", upload.single("image"), async (req, res) => {
 
   try {
     // Spawn Python process to extract features
-    const pythonProcess = spawn('python', ['backend/python/ext_feat.py', imagePath]);
+    const pythonScriptPath = path.join(__dirname, 'python', 'ext_feat.py');
+    const pythonProcess = spawn('python', [pythonScriptPath, imagePath]);
 
     let dataString = '';
     let errorString = '';
