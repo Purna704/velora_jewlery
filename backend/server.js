@@ -86,7 +86,7 @@ app.post("/search", upload.single("image"), async (req, res) => {
     // Return the results as JSON
     res.json({ results });
   } catch (err) {
-    console.error("Error in /search:", err);
+    console.error("Error in /search:", err.response ? err.response.data : err.message ? err.message : err);
     res.status(500).send("Error processing image");
   }
 });
