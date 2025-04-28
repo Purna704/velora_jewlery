@@ -1,10 +1,9 @@
 const express = require("express");
 const multer = require("multer");
-const axios = require("axios");
 const cors = require("cors");
 const fs = require("fs");
-const FormData = require("form-data");
 const path = require("path");
+const { spawn } = require("child_process");
 
 const app = express();
 app.use(cors());
@@ -30,25 +29,52 @@ function cosineSimilarity(a, b) {
 }
 
 // API endpoint to handle upload and search
-app.post("/search", upload.single("image"), async (req, res) => {
+app.post("/search", upload.single("image"), (req, res) => {
   if (!req.file) {
     return res.status(400).send("No file uploaded.");
   }
 
-  const formData = new FormData();
-  formData.append("image", fs.createReadStream(req.file.path));
+  const imagePath = req.file.path;
+  const pythonScriptPath = path.join(__dirname, "python", "ext_feat.py");
 
-  try {
-    // Send the uploaded image to the external Python service for feature extraction
-    const response = await axios.post(
-      "https://velora-python.onrender.com/extract",
-      formData,
-      {
-        headers: formData.getHeaders(),
-      }
-    );
+  const pythonProcess = spawn("python", [pythonScriptPath, imagePath]);
 
-    const queryFeatures = response.data.features;
+  let dataString = "";
+  let errorString = "";
+
+  pythonProcess.stdout.on("data", (data) => {
+    dataString += data.toString();
+  });
+
+  pythonProcess.stderr.on("data", (data) => {
+    errorString += data.toString();
+  });
+
+  pythonProcess.on("close", (code) => {
+    // Cleanup uploaded file
+    fs.unlink(imagePath, (err) => {
+      if (err) console.error("Error deleting uploaded file:", err);
+    });
+
+    if (code !== 0) {
+      console.error(`Python process exited with code ${code}: ${errorString}`);
+      return res.status(500).send("Error processing image in feature extraction: " + errorString);
+    }
+
+    let result;
+    try {
+      result = JSON.parse(dataString);
+    } catch (err) {
+      console.error("Error parsing JSON from Python script:", err);
+      return res.status(500).send("Error parsing feature extraction result: " + err.message);
+    }
+
+    if (result.error) {
+      console.error("Error from Python script:", result.error);
+      return res.status(500).send("Error in feature extraction: " + result.error);
+    }
+
+    const queryFeatures = result.features;
     console.log("Query features length:", queryFeatures.length);
 
     if (!queryFeatures || queryFeatures.length === 0) {
@@ -62,38 +88,25 @@ app.post("/search", upload.single("image"), async (req, res) => {
     const catalog = require("./catlog.json");
 
     const results = catalog
-      .map(item => {
-        // Ensure that item.features exists before calculating similarity
+      .map((item) => {
         if (!item.features) {
           console.warn(`Item ${item.id} does not have features.`);
           return null;
         }
-
-        // Calculate similarity between the query and catalog item
         let similarity = cosineSimilarity(queryFeatures, item.features);
-        similarity = similarity * 100; // convert to percentile
+        similarity = similarity * 100;
         console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
-
         return {
           ...item,
           similarity,
         };
       })
-      .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
-      .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
-      .slice(0, 5); // Limit the number of results to the top 5 most similar
+      .filter((item) => item && item.similarity >= threshold * 100)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
 
-    // Cleanup uploaded file
-    fs.unlink(req.file.path, (err) => {
-      if (err) console.error("Error deleting uploaded file:", err);
-    });
-
-    // Return the results as JSON
     res.json({ results });
-  } catch (err) {
-    console.error("Error in /search:", err.response ? err.response.data : err.message ? err.message : err);
-    res.status(500).send("Error processing image");
-  }
+  });
 });
 
 // Serve static files (Optional, if you want to serve the uploaded images)
