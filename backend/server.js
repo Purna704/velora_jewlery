@@ -1,26 +1,13 @@
 const express = require("express");
 const multer = require("multer");
+const axios = require("axios");
 const cors = require("cors");
 const fs = require("fs");
+const FormData = require("form-data");
 const path = require("path");
-const { spawn } = require("child_process");
 
 const app = express();
-
-// Explicitly allow CORS from frontend origin
-const allowedOrigins = ["https://velora-jewlery.vercel.app"];
-app.use(cors({
-  origin: function(origin, callback){
-    // allow requests with no origin (like mobile apps or curl requests)
-    if(!origin) return callback(null, true);
-    if(allowedOrigins.indexOf(origin) === -1){
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  }
-}));
-
+app.use(cors());
 app.use(express.json());
 
 // Multer setup for file uploads
@@ -43,52 +30,25 @@ function cosineSimilarity(a, b) {
 }
 
 // API endpoint to handle upload and search
-app.post("/search", upload.single("image"), (req, res) => {
+app.post("/search", upload.single("image"), async (req, res) => {
   if (!req.file) {
     return res.status(400).send("No file uploaded.");
   }
 
-  const imagePath = req.file.path;
-  const pythonScriptPath = path.join(__dirname, "python", "ext_feat.py");
+  const formData = new FormData();
+  formData.append("image", fs.createReadStream(req.file.path));
 
-  const pythonProcess = spawn("python", [pythonScriptPath, imagePath]);
+  try {
+    // Send the uploaded image to the external Python service for feature extraction
+    const response = await axios.post(
+      "https://velora-python.onrender.com/extract",
+      formData,
+      {
+        headers: formData.getHeaders(),
+      }
+    );
 
-  let dataString = "";
-  let errorString = "";
-
-  pythonProcess.stdout.on("data", (data) => {
-    dataString += data.toString();
-  });
-
-  pythonProcess.stderr.on("data", (data) => {
-    errorString += data.toString();
-  });
-
-  pythonProcess.on("close", (code) => {
-    // Cleanup uploaded file
-    fs.unlink(imagePath, (err) => {
-      if (err) console.error("Error deleting uploaded file:", err);
-    });
-
-    if (code !== 0) {
-      console.error(`Python process exited with code ${code}: ${errorString}`);
-      return res.status(500).send("Error processing image in feature extraction: " + errorString);
-    }
-
-    let result;
-    try {
-      result = JSON.parse(dataString);
-    } catch (err) {
-      console.error("Error parsing JSON from Python script:", err);
-      return res.status(500).send("Error parsing feature extraction result: " + err.message);
-    }
-
-    if (result.error) {
-      console.error("Error from Python script:", result.error);
-      return res.status(500).send("Error in feature extraction: " + result.error);
-    }
-
-    const queryFeatures = result.features;
+    const queryFeatures = response.data.features;
     console.log("Query features length:", queryFeatures.length);
 
     if (!queryFeatures || queryFeatures.length === 0) {
@@ -102,25 +62,33 @@ app.post("/search", upload.single("image"), (req, res) => {
     const catalog = require("./catlog.json");
 
     const results = catalog
-      .map((item) => {
+      .map(item => {
+        // Ensure that item.features exists before calculating similarity
         if (!item.features) {
           console.warn(`Item ${item.id} does not have features.`);
           return null;
         }
+
+        // Calculate similarity between the query and catalog item
         let similarity = cosineSimilarity(queryFeatures, item.features);
-        similarity = similarity * 100;
+        similarity = similarity * 100; // convert to percentile
         console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
+
         return {
           ...item,
           similarity,
         };
       })
-      .filter((item) => item && item.similarity >= threshold * 100)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
+      .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
+      .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
+      .slice(0, 5); // Limit the number of results to the top 5 most similar
 
+    // Return the results as JSON
     res.json({ results });
-  });
+  } catch (err) {
+    console.error("Error in /search:", err);
+    res.status(500).send("Error processing image");
+  }
 });
 
 // Serve static files (Optional, if you want to serve the uploaded images)
