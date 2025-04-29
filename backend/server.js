@@ -72,7 +72,11 @@ app.post("/search", upload.single("image"), async (req, res) => {
   }
 
   const formData = new FormData();
-  formData.append("image", fs.createReadStream(req.file.path));
+  const fileBuffer = fs.readFileSync(req.file.path);
+  formData.append("image", fileBuffer, {
+    filename: req.file.originalname,
+    contentType: req.file.mimetype,
+  });
 
   try {
     // Send the uploaded image to the new external Python service for feature extraction
