@@ -53,12 +53,23 @@ app.post("/search", upload.single("image"), async (req, res) => {
   formData.append("image", fs.createReadStream(req.file.path));
 
   try {
+    // Calculate content length and add to headers
+    const contentLength = await new Promise((resolve, reject) => {
+      formData.getLength((err, length) => {
+        if (err) reject(err);
+        resolve(length);
+      });
+    });
+
     // Send the uploaded image to the new external Python service for feature extraction
     const response = await axios.post(
       "https://velora-new-python.onrender.com/extract",
       formData,
       {
-        headers: formData.getHeaders(),
+        headers: {
+          ...formData.getHeaders(),
+          'Content-Length': contentLength,
+        },
       }
     );
 
