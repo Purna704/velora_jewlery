@@ -39,11 +39,7 @@ const ImageSearch = ({
 
     try {
       // Send the POST request to the backend with the image file
-      const response = await axios.post('https://velora-jewlery.onrender.com/search', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post('https://velora-jewlery.onrender.com/search', formData);
 
       // Check if no results are found
       if (response.data.results.length === 0) {
