@@ -20,9 +20,20 @@ const ImageSearch = ({
 
   // Handle the file input change (when the user selects an image)
   const handleFileChange = (event) => {
-    setSelectedFile(event.target.files[0]);
-    setResults([]); // Clear previous results
-    setError(null); // Clear any previous errors
+    const file = event.target.files[0];
+    if (file) {
+      const allowedExtensions = ['jpg', 'jpeg', 'png'];
+      const fileExtension = file.name.split('.').pop().toLowerCase();
+      if (!allowedExtensions.includes(fileExtension)) {
+        setError('Unsupported file type. Please select a JPG or PNG image.');
+        setSelectedFile(null);
+        setResults([]);
+        return;
+      }
+      setSelectedFile(file);
+      setResults([]); // Clear previous results
+      setError(null); // Clear any previous errors
+    }
   };
 
   // Handle image upload and search
