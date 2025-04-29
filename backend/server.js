@@ -10,6 +10,8 @@ const app = express();
 
 // Explicitly allow CORS from frontend origin
 const allowedOrigins = ["https://velora-jewlery.vercel.app", "https://velora-jewlery.vercel.app/", "http://localhost:3000", "http://127.0.0.1:3000"];
+
+// Apply CORS middleware early
 app.use(cors({
   origin: function(origin, callback){
     // allow requests with no origin (like mobile apps or curl requests)
@@ -19,11 +21,12 @@ app.use(cors({
       return callback(new Error(msg), false);
     }
     return callback(null, true);
-  }
+  },
+  credentials: true,
 }));
 
-// Add middleware to set Access-Control-Allow-Origin header explicitly for all responses
-app.use((req, res, next) => {
+// Explicitly handle OPTIONS preflight requests
+app.options('*', (req, res) => {
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -31,9 +34,14 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
+  res.sendStatus(200);
+});
+
+// Logging middleware to log response headers for debugging
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    console.log(`Response headers for ${req.method} ${req.url}:`, res.getHeaders());
+  });
   next();
 });
 
@@ -126,7 +134,11 @@ app.post("/search", upload.single("image"), async (req, res) => {
     // Return the results as JSON
     res.json({ results });
   } catch (err) {
-    console.error("Error in /search:", err);
+    if (err.response && err.response.data) {
+      console.error("Error response from Python backend:", err.response.data);
+    } else {
+      console.error("Error in /search:", err);
+    }
     res.status(500).send("Error processing image");
   }
 });
