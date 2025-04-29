@@ -9,7 +9,7 @@ const path = require("path");
 const app = express();
 
 // Explicitly allow CORS from frontend origin
-const allowedOrigins = ["https://velora-jewlery.vercel.app", "http://localhost:3000", "http://127.0.0.1:3000"];
+const allowedOrigins = ["https://velora-jewlery.vercel.app", "https://velora-jewlery.vercel.app/", "http://localhost:3000", "http://127.0.0.1:3000"];
 app.use(cors({
   origin: function(origin, callback){
     // allow requests with no origin (like mobile apps or curl requests)
@@ -21,6 +21,21 @@ app.use(cors({
     return callback(null, true);
   }
 }));
+
+// Add middleware to set Access-Control-Allow-Origin header explicitly for all responses
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.use(express.json());
 
