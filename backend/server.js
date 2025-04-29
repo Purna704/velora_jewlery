@@ -39,9 +39,9 @@ app.post("/search", upload.single("image"), async (req, res) => {
   formData.append("image", fs.createReadStream(req.file.path));
 
   try {
-    // Send the uploaded image to the external Python service for feature extraction
+    // Send the uploaded image to the new external Python service for feature extraction
     const response = await axios.post(
-      "https://velora-python.onrender.com/extract",
+      "https://velora-new-python.onrender.com/extract",
       formData,
       {
         headers: formData.getHeaders(),
