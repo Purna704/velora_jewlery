@@ -21,8 +21,10 @@ model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
 
 @app.route('/extract', methods=['POST'])
 def extract_features():
+    app.logger.info(f"Request headers: {dict(request.headers)}")
+    app.logger.info(f"Request files: {list(request.files.keys())}")
     try:
-        file = request.files['image']
+        file = request.files.get('image')
         if not file:
             app.logger.error("No file part in the request")
             return jsonify({'error': 'No file part in the request'}), 400
@@ -30,7 +32,7 @@ def extract_features():
             img = image.load_img(BytesIO(file.read()), target_size=(224, 224))
         except Exception as e:
             app.logger.error(f"Error loading image: {e}")
-            return jsonify({'error': f"Invalid image file: {e}"}), 400
+            return jsonify({'error': 'Illegal format not supported'}), 400
         x = image.img_to_array(img)
         x = preprocess_input(np.expand_dims(x, axis=0))
         features = model.predict(x)[0].tolist()
