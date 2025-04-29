@@ -28,6 +28,13 @@ def extract_features():
         if not file:
             app.logger.error("No file part in the request")
             return jsonify({'error': 'No file part in the request'}), 400
+
+        # Check file extension for supported types
+        filename = file.filename.lower()
+        if not (filename.endswith('.jpg') or filename.endswith('.jpeg') or filename.endswith('.png')):
+            app.logger.error(f"Unsupported file type: {filename}")
+            return jsonify({'error': 'Kind of file not supported'}), 400
+
         try:
             img = image.load_img(BytesIO(file.read()), target_size=(224, 224))
         except Exception as e:
