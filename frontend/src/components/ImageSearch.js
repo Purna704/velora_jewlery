@@ -39,7 +39,7 @@ const ImageSearch = ({
 
     try {
       // Send the POST request to the backend with the image file
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || "https://velora-jewlery.onrender.com";
       const response = await axios.post(`${backendUrl}/search`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
