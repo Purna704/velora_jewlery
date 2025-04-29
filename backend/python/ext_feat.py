@@ -35,8 +35,11 @@ def extract_features():
             app.logger.error(f"Unsupported file type: {filename}")
             return jsonify({'error': 'Kind of file not supported'}), 400
 
+        # Read file content once
+        file_content = file.read()
+
         try:
-            img = image.load_img(BytesIO(file.read()), target_size=(224, 224))
+            img = image.load_img(BytesIO(file_content), target_size=(224, 224))
         except Exception as e:
             app.logger.error(f"Error loading image: {e}")
             return jsonify({'error': 'Illegal format not supported'}), 400
