@@ -49,6 +49,8 @@ app.post("/search", upload.single("image"), async (req, res) => {
     return res.status(400).send("No file uploaded.");
   }
 
+  console.log(`Received file: originalname=${req.file.originalname}, mimetype=${req.file.mimetype}`);
+
   const formData = new FormData();
   formData.append("image", fs.createReadStream(req.file.path));
 
