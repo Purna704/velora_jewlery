@@ -49,89 +49,53 @@ app.post("/search", upload.single("image"), async (req, res) => {
     return res.status(400).send("No file uploaded.");
   }
 
+  const imagePath = path.resolve(req.file.path);
+
+  if (!fs.existsSync(imagePath)) {
+    console.error("Uploaded file not found:", imagePath);
+    return res.status(500).send("Uploaded file not found.");
+  }
+
   const formData = new FormData();
-  formData.append("image", fs.createReadStream(req.file.path));
+  formData.append("image", fs.createReadStream(imagePath));
 
   try {
-    // Log FormData headers for debugging
-    console.log("FormData headers:", formData.getHeaders());
-
-    // Check if file stream is readable
-    const fileStream = fs.createReadStream(req.file.path);
-    fileStream.on('error', (err) => {
-      console.error("File stream error:", err);
-    });
-
-    // Calculate content length and add to headers
-    const contentLength = await new Promise((resolve, reject) => {
-      formData.getLength((err, length) => {
-        if (err) reject(err);
-        resolve(length);
-      });
-    });
-
-    // Send the uploaded image to the new external Python service for feature extraction
     const response = await axios.post(
       "https://velora-new-python.onrender.com/extract",
       formData,
       {
-        headers: {
-          ...formData.getHeaders(),
-          'Content-Length': contentLength,
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+        headers: formData.getHeaders()
       }
     );
 
     const queryFeatures = response.data.features;
-    console.log("Query features length:", queryFeatures.length);
-
     if (!queryFeatures || queryFeatures.length === 0) {
       return res.status(500).send("No features returned from feature extraction.");
     }
 
-    // Similarity threshold
-    const threshold = 0.7;
-
-    // Compare against catalog and filter by threshold
     const catalog = require("./catlog.json");
+    const threshold = 0.7;
 
     const results = catalog
       .map(item => {
-        // Ensure that item.features exists before calculating similarity
-        if (!item.features) {
-          console.warn(`Item ${item.id} does not have features.`);
-          return null;
-        }
-
-        // Calculate similarity between the query and catalog item
-        let similarity = cosineSimilarity(queryFeatures, item.features);
-        similarity = similarity * 100; // convert to percentile
-        console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
-
-        return {
-          ...item,
-          similarity,
-        };
+        if (!item.features) return null;
+        const similarity = cosineSimilarity(queryFeatures, item.features) * 100;
+        return { ...item, similarity };
       })
-      .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
-      .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
-      .slice(0, 5); // Limit the number of results to the top 5 most similar
+      .filter(item => item && item.similarity >= threshold * 100)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
 
-    // Return the results as JSON
     res.json({ results });
+
   } catch (err) {
-    console.error("Error in /search:", err);
-
-    // Check if error response from Python backend indicates invalid format
-    if (err.response && err.response.status === 400 && err.response.data && err.response.data.error) {
-      if (err.response.data.error.toLowerCase().includes("invalid image") || err.response.data.error.toLowerCase().includes("no file part")) {
-        return res.status(400).send("Illegal format not supported");
-      }
-    }
-
-    res.status(502).send("Error processing image");
+    console.error("Error in /search:", err.message);
+    res.status(500).send("Error processing image");
+  } finally {
+    // Clean up the uploaded image
+    fs.unlink(imagePath, err => {
+      if (err) console.warn("Failed to delete uploaded file:", err.message);
+    });
   }
 });
 
