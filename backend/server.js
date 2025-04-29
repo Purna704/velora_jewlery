@@ -64,7 +64,12 @@ app.post("/search", upload.single("image"), async (req, res) => {
     return res.status(400).send("No file uploaded.");
   }
 
-  console.log(`Received file: originalname=${req.file.originalname}, mimetype=${req.file.mimetype}`);
+  console.log(`Received file: originalname=${req.file.originalname}, mimetype=${req.file.mimetype}, size=${req.file.size}, path=${req.file.path}`);
+
+  if (!fs.existsSync(req.file.path)) {
+    console.error("Uploaded file does not exist at path:", req.file.path);
+    return res.status(400).send("Uploaded file not found.");
+  }
 
   const formData = new FormData();
   formData.append("image", fs.createReadStream(req.file.path));
