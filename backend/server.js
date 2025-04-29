@@ -53,6 +53,15 @@ app.post("/search", upload.single("image"), async (req, res) => {
   formData.append("image", fs.createReadStream(req.file.path));
 
   try {
+    // Log FormData headers for debugging
+    console.log("FormData headers:", formData.getHeaders());
+
+    // Check if file stream is readable
+    const fileStream = fs.createReadStream(req.file.path);
+    fileStream.on('error', (err) => {
+      console.error("File stream error:", err);
+    });
+
     // Calculate content length and add to headers
     const contentLength = await new Promise((resolve, reject) => {
       formData.getLength((err, length) => {
@@ -70,6 +79,8 @@ app.post("/search", upload.single("image"), async (req, res) => {
           ...formData.getHeaders(),
           'Content-Length': contentLength,
         },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       }
     );
 
@@ -112,7 +123,15 @@ app.post("/search", upload.single("image"), async (req, res) => {
     res.json({ results });
   } catch (err) {
     console.error("Error in /search:", err);
-    res.status(500).send("Error processing image");
+
+    // Check if error response from Python backend indicates invalid format
+    if (err.response && err.response.status === 400 && err.response.data && err.response.data.error) {
+      if (err.response.data.error.toLowerCase().includes("invalid image") || err.response.data.error.toLowerCase().includes("no file part")) {
+        return res.status(400).send("Illegal format not supported");
+      }
+    }
+
+    res.status(502).send("Error processing image");
   }
 });
 
