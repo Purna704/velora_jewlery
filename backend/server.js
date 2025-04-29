@@ -9,7 +9,7 @@ const path = require("path");
 const app = express();
 
 // Explicitly allow CORS from frontend origin
-const allowedOrigins = ["https://velora-jewlery.vercel.app"];
+const allowedOrigins = ["https://velora-jewlery.vercel.app", "http://localhost:3000", "http://127.0.0.1:3000"];
 app.use(cors({
   origin: function(origin, callback){
     // allow requests with no origin (like mobile apps or curl requests)
@@ -49,53 +49,59 @@ app.post("/search", upload.single("image"), async (req, res) => {
     return res.status(400).send("No file uploaded.");
   }
 
-  const imagePath = path.resolve(req.file.path);
-
-  if (!fs.existsSync(imagePath)) {
-    console.error("Uploaded file not found:", imagePath);
-    return res.status(500).send("Uploaded file not found.");
-  }
-
   const formData = new FormData();
-  formData.append("image", fs.createReadStream(imagePath));
+  formData.append("image", fs.createReadStream(req.file.path));
 
   try {
+    // Send the uploaded image to the new external Python service for feature extraction
     const response = await axios.post(
       "https://velora-new-python.onrender.com/extract",
       formData,
       {
-        headers: formData.getHeaders()
+        headers: formData.getHeaders(),
       }
     );
 
     const queryFeatures = response.data.features;
+    console.log("Query features length:", queryFeatures.length);
+
     if (!queryFeatures || queryFeatures.length === 0) {
       return res.status(500).send("No features returned from feature extraction.");
     }
 
-    const catalog = require("./catlog.json");
+    // Similarity threshold
     const threshold = 0.7;
+
+    // Compare against catalog and filter by threshold
+    const catalog = require("./catlog.json");
 
     const results = catalog
       .map(item => {
-        if (!item.features) return null;
-        const similarity = cosineSimilarity(queryFeatures, item.features) * 100;
-        return { ...item, similarity };
+        // Ensure that item.features exists before calculating similarity
+      if (!item.features) {
+          console.warn(`Item ${item.id} does not have features.`);
+          return null;
+        }
+
+        // Calculate similarity between the query and catalog item
+        let similarity = cosineSimilarity(queryFeatures, item.features);
+        similarity = similarity * 100; // convert to percentile
+        console.log(`Similarity for item ${item.id} (${item.name}):`, similarity);
+
+        return {
+          ...item,
+          similarity,
+        };
       })
-      .filter(item => item && item.similarity >= threshold * 100)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 5);
+      .filter(item => item && item.similarity >= threshold * 100) // Filter valid items
+      .sort((a, b) => b.similarity - a.similarity) // Sort results by similarity (highest first)
+      .slice(0, 5); // Limit the number of results to the top 5 most similar
 
+    // Return the results as JSON
     res.json({ results });
-
   } catch (err) {
-    console.error("Error in /search:", err.message);
+    console.error("Error in /search:", err);
     res.status(500).send("Error processing image");
-  } finally {
-    // Clean up the uploaded image
-    fs.unlink(imagePath, err => {
-      if (err) console.warn("Failed to delete uploaded file:", err.message);
-    });
   }
 });
 
