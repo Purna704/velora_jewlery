@@ -146,6 +146,16 @@ app.post("/search", upload.single("image"), async (req, res) => {
 // Serve static files (Optional, if you want to serve the uploaded images)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Error handling middleware to catch route parsing errors and others
+app.use((err, req, res, next) => {
+  console.error("Express error handler caught an error:", err);
+  if (err instanceof SyntaxError || err.message.includes("path-to-regexp")) {
+    res.status(400).send("Invalid route or path parameter.");
+  } else {
+    res.status(500).send("Internal server error.");
+  }
+});
+
 // Listen on all interfaces
 app.listen(process.env.PORT || 5000, "0.0.0.0", () => {
   console.log("Node.js backend running on http://localhost:5000");
