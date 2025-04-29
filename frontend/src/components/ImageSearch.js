@@ -39,7 +39,12 @@ const ImageSearch = ({
 
     try {
       // Send the POST request to the backend with the image file
-      const response = await axios.post('https://velora-jewlery.onrender.com/search', formData);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+      const response = await axios.post(`${backendUrl}/search`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       // Check if no results are found
       if (response.data.results.length === 0) {
@@ -50,7 +55,13 @@ const ImageSearch = ({
       }
     } catch (err) {
       // Handle errors during the request
-      setError('Failed to upload image or get results.');
+      if (err.response && err.response.status === 500) {
+        setError('Server error occurred while processing the image.');
+      } else if (err.message && err.message.includes('Network Error')) {
+        setError('Network error: Unable to reach the backend server.');
+      } else {
+        setError('Failed to upload image or get results.');
+      }
       setResults([]); // Clear results on error
     } finally {
       setLoading(false); // Stop loading
